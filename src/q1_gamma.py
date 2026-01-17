@@ -41,3 +41,31 @@ plt.axis('off')
 
 plt.show()
 
+# ================== CONTRAST STRETCHING ==================
+
+r1 = 0.2
+r2 = 0.8
+
+def contrast_stretch(image, r1, r2):
+    stretched = np.zeros_like(image)
+
+    # Below r1
+    stretched[image < r1] = 0
+
+    # Between r1 and r2
+    mask = (image >= r1) & (image <= r2)
+    stretched[mask] = (image[mask] - r1) / (r2 - r1)
+
+    # Above r2
+    stretched[image > r2] = 1
+
+    return stretched
+
+# Apply contrast stretching
+contrast_img = contrast_stretch(img_norm, r1, r2)
+# Display contrast stretching result
+plt.figure(figsize=(5, 4))
+plt.imshow(contrast_img, cmap='gray')
+plt.title('Contrast Stretched Image')
+plt.axis('off')
+plt.show()
