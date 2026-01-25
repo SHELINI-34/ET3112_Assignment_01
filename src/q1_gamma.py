@@ -1,71 +1,72 @@
 import cv2
 import numpy as np
 import matplotlib.pyplot as plt
+import os
 
-# Step 1: Read image in grayscale
-img = cv2.imread('../images/runway.jpg', cv2.IMREAD_GRAYSCALE)
+# --- PART A: LOAD AND PRE-PROCESS ---
+# Make sure your image path is correct relative to your script location
+image_path = '../images/runway.jpg'
 
-# Check if image loaded
-if img is None:
-    print("Error: Image not found!")
+if not os.path.exists(image_path):
+    print(f"Error: File not found at {image_path}")
     exit()
 
-# Step 2: Normalize image to range [0,1]
-img_norm = img / 255.0
+img = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
+img_norm = img / 255.0  # Normalize to [0,1] for mathematical operations
 
-# Step 3: Gamma correction function
-def gamma_correction(image, gamma):
+# --- PART B: GAMMA TRANSFORMATIONS ---
+def apply_gamma(image, gamma):
+    # Formula: s = c * r^gamma (c=1 here)
     return np.power(image, gamma)
 
-# Step 4: Apply gamma corrections
-gamma_05 = gamma_correction(img_norm, 0.5)
-gamma_2 = gamma_correction(img_norm, 2.0)
+gamma_05 = apply_gamma(img_norm, 0.5) # Brightens shadows
+gamma_20 = apply_gamma(img_norm, 2.0) # Darkens/increases contrast
 
-# Step 5: Display results
-plt.figure(figsize=(10, 4))
-
-plt.subplot(1, 3, 1)
-plt.imshow(img_norm, cmap='gray')
-plt.title('Original')
-plt.axis('off')
-
-plt.subplot(1, 3, 2)
-plt.imshow(gamma_05, cmap='gray')
-plt.title('Gamma = 0.5')
-plt.axis('off')
-
-plt.subplot(1, 3, 3)
-plt.imshow(gamma_2, cmap='gray')
-plt.title('Gamma = 2')
-plt.axis('off')
-
-plt.show()
-
-# ================== CONTRAST STRETCHING ==================
-
-r1 = 0.2
-r2 = 0.8
-
+# --- PART C: PIECEWISE CONTRAST STRETCHING ---
 def contrast_stretch(image, r1, r2):
+    # This creates a more aggressive stretch (Thresholding logic)
     stretched = np.zeros_like(image)
-
-    # Below r1
+    
+    # 1. Darken values below r1 to black
     stretched[image < r1] = 0
-
-    # Between r1 and r2
+    
+    # 2. Linearly stretch values between r1 and r2 to [0, 1]
     mask = (image >= r1) & (image <= r2)
     stretched[mask] = (image[mask] - r1) / (r2 - r1)
-
-    # Above r2
+    
+    # 3. Brighten values above r2 to white
     stretched[image > r2] = 1
-
+    
     return stretched
 
-# Apply contrast stretching
-contrast_img = contrast_stretch(img_norm, r1, r2)
-# Display contrast stretching result
-plt.figure(figsize=(5, 4))
-plt.imshow(contrast_img, cmap='gray')
-plt.title('Contrast Stretched Image')
+contrast_res = contrast_stretch(img_norm, 0.2, 0.8)
+
+# --- FINAL OUTPUT: CONSOLIDATED DISPLAY ---
+plt.figure(figsize=(12, 8))
+
+# Subplot 1: Original
+plt.subplot(2, 2, 1)
+plt.imshow(img_norm, cmap='gray')
+plt.title('(a) Original Grayscale')
 plt.axis('off')
+
+# Subplot 2: Gamma 0.5
+plt.subplot(2, 2, 2)
+plt.imshow(gamma_05, cmap='gray')
+plt.title('(b) Gamma Correction ($\gamma=0.5$)')
+plt.axis('off')
+
+# Subplot 3: Gamma 2.0
+plt.subplot(2, 2, 3)
+plt.imshow(gamma_20, cmap='gray')
+plt.title('(c) Gamma Correction ($\gamma=2.0$)')
+plt.axis('off')
+
+# Subplot 4: Contrast Stretching
+plt.subplot(2, 2, 4)
+plt.imshow(contrast_res, cmap='gray')
+plt.title('(d) Contrast Stretching ($r_1=0.2, r_2=0.8$)')
+plt.axis('off')
+
+plt.tight_layout()
 plt.show()
