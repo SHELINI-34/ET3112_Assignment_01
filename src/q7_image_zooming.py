@@ -2,28 +2,30 @@ import cv2
 import numpy as np
 import matplotlib.pyplot as plt
 
-
-def zoom_nearest(image, scale):
-    h, w = image.shape
-    new_h = int(h * scale)
-    new_w = int(w * scale)
-
-    zoomed = np.zeros((new_h, new_w), dtype=image.dtype)
+# -----------------------------
+# Nearest Neighbor Interpolation
+# -----------------------------
+def zoom_nearest(img, scale):
+    h, w = img.shape[:2]
+    new_h, new_w = int(round(h * scale)), int(round(w * scale))
+    zoomed = np.zeros((new_h, new_w, 3), dtype=img.dtype)
 
     for i in range(new_h):
         for j in range(new_w):
-            x = int(i / scale)
-            y = int(j / scale)
-            zoomed[i, j] = image[min(x, h-1), min(y, w-1)]
+            x = min(int(i / scale), h - 1)
+            y = min(int(j / scale), w - 1)
+            zoomed[i, j] = img[x, y]
 
     return zoomed
 
-def zoom_bilinear(image, scale):
-    h, w = image.shape
-    new_h = int(h * scale)
-    new_w = int(w * scale)
 
-    zoomed = np.zeros((new_h, new_w), dtype=np.float32)
+# -----------------------------
+# Bilinear Interpolation
+# -----------------------------
+def zoom_bilinear(img, scale):
+    h, w = img.shape[:2]
+    new_h, new_w = int(round(h * scale)), int(round(w * scale))
+    zoomed = np.zeros((new_h, new_w, 3), dtype=np.float32)
 
     for i in range(new_h):
         for j in range(new_w):
@@ -31,65 +33,87 @@ def zoom_bilinear(image, scale):
             y = j / scale
 
             x0 = int(np.floor(x))
-            y0 = int(np.floor(y))
             x1 = min(x0 + 1, h - 1)
+            y0 = int(np.floor(y))
             y1 = min(y0 + 1, w - 1)
 
             dx = x - x0
             dy = y - y0
 
-            zoomed[i, j] = (
-                (1-dx)*(1-dy)*image[x0, y0] +
-                dx*(1-dy)*image[x1, y0] +
-                (1-dx)*dy*image[x0, y1] +
-                dx*dy*image[x1, y1]
-            )
+            top = (1 - dy) * img[x0, y0] + dy * img[x0, y1]
+            bottom = (1 - dy) * img[x1, y0] + dy * img[x1, y1]
+            zoomed[i, j] = (1 - dx) * top + dx * bottom
 
-    return zoomed.astype(np.uint8)
+    return np.uint8(zoomed)
 
 
-def normalized_ssd(img1, img2):
+# -----------------------------
+# Normalized SSD
+# -----------------------------
+def compute_ssd(img1, img2):
     diff = img1.astype(np.float32) - img2.astype(np.float32)
-    return np.sum(diff**2) / np.sum(img1.astype(np.float32)**2)
+    return np.sum(diff ** 2) / img1.size
 
 
-large = cv2.imread(
-    r'C:\Users\HP\OneDrive\Documents\GitHub\ET3112_Assignment_01\images\im01.png',
-    cv2.IMREAD_GRAYSCALE
-)
+# -----------------------------
+# IMAGE PAIRS
+# -----------------------------
+image_pairs = [
+    ("im01.png", "im01small.png"),
+    ("im02.png", "im02small.png"),
+    ("im03.png", "im03small.png"),
+]
 
-small = cv2.imread(
-    r'C:\Users\HP\OneDrive\Documents\GitHub\ET3112_Assignment_01\images\im01small.png',
-    cv2.IMREAD_GRAYSCALE
-)
+# -----------------------------
+# MAIN PROCESS
+# -----------------------------
+for idx, (orig_name, small_name) in enumerate(image_pairs, start=1):
 
-scale = large.shape[0] / small.shape[0]
+    original = cv2.imread(f"../images/{orig_name}")
+    small = cv2.imread(f"../images/{small_name}")
 
-zoom_nn = zoom_nearest(small, scale)
-zoom_bl = zoom_bilinear(small, scale)
+    if original is None or small is None:
+        print(f"Error loading {orig_name} or {small_name}")
+        continue
 
-ssd_nn = normalized_ssd(large, zoom_nn)
-ssd_bl = normalized_ssd(large, zoom_bl)
+    # Compute scale factor
+    scale = original.shape[0] / small.shape[0]
 
-print("SSD Nearest Neighbor:", ssd_nn)
-print("SSD Bilinear:", ssd_bl)
+    # Zoom using both methods
+    nearest = zoom_nearest(small, scale)
+    bilinear = zoom_bilinear(small, scale)
 
-plt.figure(figsize=(12,4))
+    # Resize to EXACT original size (fixes SSD error)
+    nearest_resized = cv2.resize(nearest, (original.shape[1], original.shape[0]))
+    bilinear_resized = cv2.resize(bilinear, (original.shape[1], original.shape[0]))
 
-plt.subplot(1,3,1)
-plt.imshow(large, cmap='gray')
-plt.title("Original Large Image")
-plt.axis("off")
+    # Compute SSD
+    ssd_nearest = compute_ssd(original, nearest_resized)
+    ssd_bilinear = compute_ssd(original, bilinear_resized)
 
-plt.subplot(1,3,2)
-plt.imshow(zoom_nn, cmap='gray')
-plt.title("Nearest Neighbor Zoom")
-plt.axis("off")
+    print(f"\nResults for {orig_name}")
+    print("SSD Nearest Neighbor:", ssd_nearest)
+    print("SSD Bilinear:", ssd_bilinear)
 
-plt.subplot(1,3,3)
-plt.imshow(zoom_bl, cmap='gray')
-plt.title("Bilinear Zoom")
-plt.axis("off")
+    # -----------------------------
+    # DISPLAY RESULTS
+    # -----------------------------
+    plt.figure(figsize=(12, 5))
 
-plt.show()
+    plt.subplot(1, 3, 1)
+    plt.imshow(cv2.cvtColor(original, cv2.COLOR_BGR2RGB))
+    plt.title("Original")
+    plt.axis('off')
 
+    plt.subplot(1, 3, 2)
+    plt.imshow(cv2.cvtColor(nearest_resized, cv2.COLOR_BGR2RGB))
+    plt.title("Nearest Neighbor")
+    plt.axis('off')
+
+    plt.subplot(1, 3, 3)
+    plt.imshow(cv2.cvtColor(bilinear_resized, cv2.COLOR_BGR2RGB))
+    plt.title("Bilinear")
+    plt.axis('off')
+
+    plt.suptitle(f"Q7 Image Zooming – Image Set {idx}")
+    plt.show()
