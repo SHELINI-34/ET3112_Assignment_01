@@ -19,7 +19,7 @@ L, a, b = cv2.split(lab)
 
 # ================== GAMMA CORRECTION ON L ==================
 L_norm = L / 255.0
-gamma = 0.8   # Gamma value (state this in report)
+gamma = 0.8   # Gamma value 
 
 L_gamma = np.power(L_norm, gamma)
 
