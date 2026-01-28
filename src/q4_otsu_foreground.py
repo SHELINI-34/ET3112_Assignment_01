@@ -13,8 +13,8 @@ if img is None:
 gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
 
 # --- Part (a): Otsu thresholding ---
-# We use THRESH_BINARY_INV because the woman/room are DARK (low values)
-# and we want them to be the 'foreground' (white in the mask).
+
+
 threshold_value, binary_mask = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
 
 # --- Part (b): Histogram equalization on foreground only ---
